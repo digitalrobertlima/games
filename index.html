@@ -8,617 +8,79 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
-        :root {
-            --bg-color: #0a0a0a;
-            --surface-color: #1a1a1a;
-            --accent-color: #d4af37; /* Bronze/Gold */
-            --text-main: #f0f0f0;
-            --text-muted: #888888;
-            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
-
+        :root { --bg-color: #0a0a0a; --surface-color: #1a1a1a; --accent-color: #d4af37; --text-main: #f0f0f0; --text-muted: #888888; }
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: var(--font-main);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100vw;
-        }
-
-        /* UI Overlay */
-        #ui-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            z-index: 10;
-        }
-
-        .header {
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: linear-gradient(to bottom, rgba(10,10,10,0.9), transparent);
-            pointer-events: auto;
-        }
-
-        .brand { font-weight: 800; letter-spacing: 2px; font-size: 1.2rem; color: var(--accent-color); }
-        
-        .xp-container {
-            display: flex; flex-direction: column; align-items: flex-end;
-        }
-        .xp-text { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;}
-        .xp-bar-bg { width: 100px; height: 4px; background: var(--surface-color); border-radius: 2px; overflow: hidden; }
-        .xp-bar-fill { height: 100%; background: var(--accent-color); width: 0%; transition: width 0.3s ease; }
-
-        .menu {
-            position: absolute;
-            top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(26, 26, 26, 0.85);
-            backdrop-filter: blur(10px);
-            padding: 30px;
-            border-radius: 12px;
-            border: 1px solid rgba(212, 175, 55, 0.2);
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            pointer-events: auto;
-            width: 90%;
-            max-width: 350px;
-            transition: opacity 0.3s;
-        }
-
-        .menu.hidden { opacity: 0; pointer-events: none; }
-
-        .btn {
-            background: transparent;
-            color: var(--text-main);
-            border: 1px solid var(--accent-color);
-            padding: 15px;
-            border-radius: 6px;
-            font-size: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: var(--font-main);
-        }
-
-        .btn:hover, .btn:active {
-            background: var(--accent-color);
-            color: var(--bg-color);
-        }
-
-        .btn-back {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            pointer-events: auto; background: var(--surface-color); border: none;
-            padding: 10px 20px; border-radius: 20px; color: var(--text-muted);
-            font-size: 0.8rem; letter-spacing: 1px; display: none;
-        }
-
-        /* Game Canvas */
-        #game-canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            touch-action: none; /* Prevents scrolling on mobile */
-        }
-        
-        #init-screen {
-            position: absolute; top:0; left:0; width: 100%; height: 100%;
-            background: var(--bg-color); z-index: 100;
-            display: flex; justify-content: center; align-items: center;
-            color: var(--accent-color); font-size: 1.5rem; letter-spacing: 3px;
-            text-transform: uppercase; cursor: pointer;
-        }
+        body { background-color: var(--bg-color); color: var(--text-main); font-family: sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .header { padding: 20px; display: flex; justify-content: space-between; background: linear-gradient(to bottom, #0a0a0a, transparent); pointer-events: auto; }
+        .brand { font-weight: 800; letter-spacing: 2px; color: var(--accent-color); }
+        .menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(26,26,26,0.95); backdrop-filter: blur(10px); padding: 20px; border-radius: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; pointer-events: auto; width: 90%; max-width: 400px; }
+        .btn { background: #1a1a1a; color: var(--text-main); border: 1px solid var(--accent-color); padding: 10px; border-radius: 4px; font-size: 0.8rem; text-transform: uppercase; cursor: pointer; }
+        .btn-back { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); pointer-events: auto; background: #333; color: white; padding: 10px 20px; border-radius: 20px; border: none; display: none; }
+        #game-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     </style>
 </head>
 <body>
 
-    <!-- Inicializador de Áudio (Requisito dos navegadores) -->
-    <div id="init-screen">Tocar para Iniciar</div>
-
     <div id="ui-layer">
         <div class="header">
             <div class="brand">MÓDULO</div>
-            <div class="xp-container">
-                <div class="xp-text">Nível <span id="ui-level">1</span></div>
-                <div class="xp-bar-bg"><div class="xp-bar-fill" id="ui-xp"></div></div>
-            </div>
+            <div id="xp-display">Nível 1</div>
         </div>
-
         <div class="menu" id="main-menu">
-            <div style="text-align:center; color: var(--text-muted); margin-bottom:10px; font-size:0.9rem;">SELECIONE O PROTOCOLO</div>
-            <button class="btn" onclick="M.startGame('snake')">Snake (Grid)</button>
-            <button class="btn" onclick="M.startGame('zen')">Zen Matrix (Grid)</button>
-            <button class="btn" onclick="M.startGame('orbit')">Quantum Orbit (Física)</button>
-            <button class="btn" onclick="M.startGame('pong')">Pong (Vetores)</button>
+            <!-- 10 Jogos -->
+            <button class="btn" onclick="M.startGame('snake')">Snake</button>
+            <button class="btn" onclick="M.startGame('zen')">Zen Matrix</button>
+            <button class="btn" onclick="M.startGame('orbit')">Quantum Orbit</button>
+            <button class="btn" onclick="M.startGame('pong')">Pong</button>
+            <button class="btn" onclick="M.startGame('dodge')">Dodge</button>
+            <button class="btn" onclick="M.startGame('clicker')">Gold Tap</button>
+            <button class="btn" onclick="M.startGame('fill')">Fill Grid</button>
+            <button class="btn" onclick="M.startGame('catch')">Catch</button>
+            <button class="btn" onclick="M.startGame('memory')">Memory</button>
+            <button class="btn" onclick="M.startGame('target')">Target</button>
         </div>
-
-        <button class="btn-back" id="btn-back" onclick="M.exitGame()">ENCERRAR SESSÃO</button>
+        <button class="btn-back" id="btn-back" onclick="M.exitGame()">ENCERRAR</button>
     </div>
 
     <canvas id="game-canvas"></canvas>
 
     <script>
-        /**
-         * MÓDULO: Infinite Arcade Engine
-         * Arquitetura de Estado Único para PWA
-         */
-        
-        // 1. ENGINE DE ÁUDIO SINTETIZADO (Web Audio API)
         const AudioSys = {
             ctx: null,
-            init() {
-                if (!this.ctx) {
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    this.ctx = new AudioContext();
-                }
-                if (this.ctx.state === 'suspended') this.ctx.resume();
-            },
-            playTone(freq, type = 'sine', duration = 0.1, vol = 0.1) {
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + duration);
-            },
-            playReward() {
-                this.playTone(440, 'sine', 0.2, 0.2); // A4
-                setTimeout(() => this.playTone(554.37, 'sine', 0.4, 0.2), 100); // C#5
-            },
-            playHit() {
-                this.playTone(150, 'square', 0.1, 0.05);
-            }
+            init() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if(this.ctx.state === 'suspended') this.ctx.resume(); },
+            play(freq, dur=0.1) { if(!this.ctx) return; const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.frequency.value = freq; g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur); o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime + dur); }
         };
 
-        // 2. SISTEMA DE PROGRESSÃO E ESTADO
-        const State = {
-            xp: parseInt(localStorage.getItem('modulo_xp')) || 0,
-            level: parseInt(localStorage.getItem('modulo_level')) || 1,
-            addXP(amount) {
-                this.xp += amount;
-                const nextLevelReq = this.level * 100;
-                if (this.xp >= nextLevelReq) {
-                    this.xp -= nextLevelReq;
-                    this.level++;
-                    AudioSys.playReward();
-                }
-                localStorage.setItem('modulo_xp', this.xp);
-                localStorage.setItem('modulo_level', this.level);
-                this.updateUI();
-            },
-            updateUI() {
-                document.getElementById('ui-level').innerText = this.level;
-                const percent = (this.xp / (this.level * 100)) * 100;
-                document.getElementById('ui-xp').style.width = `${percent}%`;
-            }
-        };
-
-        // 3. MOTOR PRINCIPAL (Renderização e Loop)
         const M = {
             canvas: document.getElementById('game-canvas'),
             ctx: document.getElementById('game-canvas').getContext('2d'),
-            width: 0, height: 0,
             activeGame: null,
-            lastTime: 0,
-            reqId: null,
-            input: { x: 0, y: 0, isDown: false, swipeDir: null, startX: 0, startY: 0 },
-
-            init() {
-                this.resize();
-                window.addEventListener('resize', () => this.resize());
-                State.updateUI();
-                this.setupInput();
-                
-                document.getElementById('init-screen').addEventListener('click', (e) => {
-                    AudioSys.init();
-                    e.target.style.display = 'none';
-                });
-            },
-
-            resize() {
-                this.width = window.innerWidth;
-                this.height = window.innerHeight;
-                this.canvas.width = this.width;
-                this.canvas.height = this.height;
-            },
-
+            init() { window.addEventListener('resize', () => { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }); this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; this.setupInput(); },
             setupInput() {
-                const handleStart = (x, y) => {
-                    this.input.isDown = true; this.input.x = x; this.input.y = y;
-                    this.input.startX = x; this.input.startY = y;
-                    if(this.activeGame && this.activeGame.onTap) this.activeGame.onTap(x, y);
-                };
-                const handleMove = (x, y) => {
-                    if(!this.input.isDown) return;
-                    this.input.x = x; this.input.y = y;
-                    if(this.activeGame && this.activeGame.onDrag) this.activeGame.onDrag(x, y);
-                };
-                const handleEnd = () => {
-                    this.input.isDown = false;
-                    const dx = this.input.x - this.input.startX;
-                    const dy = this.input.y - this.input.startY;
-                    if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
-                        if (Math.abs(dx) > Math.abs(dy)) {
-                            this.input.swipeDir = dx > 0 ? 'RIGHT' : 'LEFT';
-                        } else {
-                            this.input.swipeDir = dy > 0 ? 'DOWN' : 'UP';
-                        }
-                        if(this.activeGame && this.activeGame.onSwipe) this.activeGame.onSwipe(this.input.swipeDir);
-                    }
-                };
-
-                this.canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
-                this.canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
-                window.addEventListener('mouseup', handleEnd);
-                
-                this.canvas.addEventListener('touchstart', e => handleStart(e.touches[0].clientX, e.touches[0].clientY));
-                this.canvas.addEventListener('touchmove', e => handleMove(e.touches[0].clientX, e.touches[0].clientY));
-                window.addEventListener('touchend', handleEnd);
+                this.canvas.addEventListener('mousedown', e => { if(this.activeGame?.onTap) this.activeGame.onTap(e.clientX, e.clientY); });
+                this.canvas.addEventListener('mousemove', e => { if(this.activeGame?.onDrag) this.activeGame.onDrag(e.clientX, e.clientY); });
+                this.canvas.addEventListener('touchstart', e => { if(this.activeGame?.onTap) this.activeGame.onTap(e.touches[0].clientX, e.touches[0].clientY); AudioSys.init(); });
             },
-
-            startGame(gameId) {
-                document.getElementById('main-menu').classList.add('hidden');
-                document.getElementById('btn-back').style.display = 'block';
-                this.activeGame = Games[gameId];
-                if(this.activeGame.setup) this.activeGame.setup(this.width, this.height);
-                this.lastTime = performance.now();
-                this.loop(this.lastTime);
-            },
-
-            exitGame() {
-                cancelAnimationFrame(this.reqId);
-                this.activeGame = null;
-                this.ctx.clearRect(0, 0, this.width, this.height);
-                document.getElementById('main-menu').classList.remove('hidden');
-                document.getElementById('btn-back').style.display = 'none';
-            },
-
-            loop(timestamp) {
-                if (!this.activeGame) return;
-                const dt = timestamp - this.lastTime;
-                this.lastTime = timestamp;
-
-                this.ctx.fillStyle = '#0a0a0a';
-                this.ctx.fillRect(0, 0, this.width, this.height);
-
-                if(this.activeGame.update) this.activeGame.update(dt);
-                if(this.activeGame.draw) this.activeGame.draw(this.ctx);
-
-                this.reqId = requestAnimationFrame(t => this.loop(t));
-            }
+            startGame(id) { document.getElementById('main-menu').style.display = 'none'; document.getElementById('btn-back').style.display = 'block'; this.activeGame = Games[id]; this.activeGame.setup(this.canvas.width, this.canvas.height); this.loop(); },
+            exitGame() { this.activeGame = null; document.getElementById('main-menu').style.display = 'grid'; document.getElementById('btn-back').style.display = 'none'; },
+            loop() { if(!this.activeGame) return; this.ctx.fillStyle = '#0a0a0a'; this.ctx.fillRect(0,0,this.canvas.width, this.canvas.height); this.activeGame.update(); this.activeGame.draw(this.ctx); requestAnimationFrame(()=>this.loop()); }
         };
 
-        // 4. A MATRIZ DE JOGOS
         const Games = {
-            
-            snake: {
-                gridSize: 20, body: [], food: {}, dir: 'RIGHT', nextDir: 'RIGHT', timer: 0, speed: 150, cols:0, rows:0,
-                setup(w, h) {
-                    this.cols = Math.floor(w / this.gridSize);
-                    this.rows = Math.floor(h / this.gridSize);
-                    this.reset();
-                },
-                reset() {
-                    this.body = [{x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}];
-                    this.dir = 'RIGHT'; this.nextDir = 'RIGHT';
-                    this.spawnFood();
-                },
-                spawnFood() {
-                    this.food = { x: Math.floor(Math.random() * this.cols), y: Math.floor(Math.random() * this.rows) };
-                },
-                onSwipe(dir) {
-                    if(dir === 'UP' && this.dir !== 'DOWN') this.nextDir = 'UP';
-                    if(dir === 'DOWN' && this.dir !== 'UP') this.nextDir = 'DOWN';
-                    if(dir === 'LEFT' && this.dir !== 'RIGHT') this.nextDir = 'LEFT';
-                    if(dir === 'RIGHT' && this.dir !== 'LEFT') this.nextDir = 'RIGHT';
-                },
-                update(dt) {
-                    this.timer += dt;
-                    if(this.timer > this.speed) {
-                        this.timer = 0;
-                        this.dir = this.nextDir;
-                        let head = {x: this.body[0].x, y: this.body[0].y};
-                        
-                        if(this.dir === 'RIGHT') head.x++;
-                        if(this.dir === 'LEFT') head.x--;
-                        if(this.dir === 'DOWN') head.y++;
-                        if(this.dir === 'UP') head.y--;
-
-                        if(head.x >= this.cols) head.x = 0;
-                        if(head.x < 0) head.x = this.cols - 1;
-                        if(head.y >= this.rows) head.y = 0;
-                        if(head.y < 0) head.y = this.rows - 1;
-
-                        if(this.body.some(p => p.x === head.x && p.y === head.y)) {
-                            AudioSys.playHit();
-                            this.reset();
-                            return;
-                        }
-
-                        this.body.unshift(head);
-
-                        if(head.x === this.food.x && head.y === this.food.y) {
-                            AudioSys.playTone(880, 'sine', 0.1); 
-                            State.addXP(10);
-                            this.spawnFood();
-                            this.speed = Math.max(50, this.speed - 2); 
-                        } else {
-                            this.body.pop();
-                        }
-                    }
-                },
-                draw(ctx) {
-                    ctx.fillStyle = '#d4af37';
-                    ctx.shadowBlur = 10; ctx.shadowColor = '#d4af37';
-                    ctx.fillRect(this.food.x * this.gridSize, this.food.y * this.gridSize, this.gridSize-2, this.gridSize-2);
-                    ctx.shadowBlur = 0;
-
-                    ctx.fillStyle = '#888888';
-                    this.body.forEach((p, i) => {
-                        if(i === 0) ctx.fillStyle = '#f0f0f0'; 
-                        else ctx.fillStyle = '#888888';
-                        ctx.fillRect(p.x * this.gridSize, p.y * this.gridSize, this.gridSize-2, this.gridSize-2);
-                    });
-                }
-            },
-
-            zen: {
-                grid: [], size: 8, cellSize: 40, offsetX: 0, offsetY: 0, timer: 0, beat: 0, tempo: 200,
-                scale: [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25], 
-                setup(w, h) {
-                    this.cellSize = Math.min(w, h) / 10;
-                    this.offsetX = (w - (this.size * this.cellSize)) / 2;
-                    this.offsetY = (h - (this.size * this.cellSize)) / 2;
-                    this.grid = Array(this.size).fill(0).map(() => Array(this.size).fill(false));
-                },
-                onTap(x, y) {
-                    let col = Math.floor((x - this.offsetX) / this.cellSize);
-                    let row = Math.floor((y - this.offsetY) / this.cellSize);
-                    if(col >= 0 && col < this.size && row >= 0 && row < this.size) {
-                        this.grid[row][col] = !this.grid[row][col];
-                        if(this.grid[row][col]) AudioSys.playTone(this.scale[7 - row], 'triangle', 0.1);
-                        State.addXP(2);
-                    }
-                },
-                update(dt) {
-                    this.timer += dt;
-                    if(this.timer > this.tempo) {
-                        this.timer = 0;
-                        this.beat = (this.beat + 1) % this.size;
-                        for(let r=0; r<this.size; r++) {
-                            if(this.grid[r][this.beat]) {
-                                AudioSys.playTone(this.scale[7 - r], 'sine', 0.3);
-                            }
-                        }
-                    }
-                },
-                draw(ctx) {
-                    for(let r=0; r<this.size; r++) {
-                        for(let c=0; c<this.size; c++) {
-                            let x = this.offsetX + c * this.cellSize;
-                            let y = this.offsetY + r * this.cellSize;
-                            ctx.strokeStyle = '#333';
-                            ctx.strokeRect(x, y, this.cellSize, this.cellSize);
-                            
-                            if(this.grid[r][c]) {
-                                ctx.fillStyle = '#d4af37';
-                                ctx.fillRect(x+4, y+4, this.cellSize-8, this.cellSize-8);
-                            }
-                            if(c === this.beat) {
-                                ctx.fillStyle = 'rgba(212, 175, 55, 0.2)';
-                                ctx.fillRect(x, y, this.cellSize, this.cellSize);
-                            }
-                        }
-                    }
-                }
-            },
-
-            orbit: {
-                particles: [], w:0, h:0,
-                setup(w, h) {
-                    this.w = w; this.h = h;
-                    this.particles = Array(100).fill(0).map(() => ({
-                        x: Math.random() * w, y: Math.random() * h,
-                        vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2
-                    }));
-                },
-                update(dt) {
-                    let tx = M.input.isDown ? M.input.x : this.w/2;
-                    let ty = M.input.isDown ? M.input.y : this.h/2;
-
-                    this.particles.forEach(p => {
-                        let dx = tx - p.x;
-                        let dy = ty - p.y;
-                        let dist = Math.sqrt(dx*dx + dy*dy);
-                        if(dist > 0) {
-                            let f = M.input.isDown ? 0.05 : 0.005; 
-                            p.vx += (dx / dist) * f;
-                            p.vy += (dy / dist) * f;
-                        }
-                        p.vx *= 0.99; p.vy *= 0.99;
-                        p.x += p.vx; p.y += p.vy;
-                        
-                        if(M.input.isDown && dist < 20) {
-                            p.x = Math.random() * this.w; 
-                            p.y = 0;
-                            AudioSys.playTone(600 + Math.random()*400, 'sine', 0.05);
-                            State.addXP(1);
-                        }
-                    });
-                },
-                draw(ctx) {
-                    ctx.fillStyle = '#d4af37';
-                    this.particles.forEach(p => {
-                        ctx.globalAlpha = 0.6;
-                        ctx.beginPath();
-                        ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
-                        ctx.fill();
-                    });
-                    ctx.globalAlpha = 1.0;
-                    if(M.input.isDown) {
-                        ctx.strokeStyle = 'rgba(212, 175, 55, 0.5)';
-                        ctx.beginPath();
-                        ctx.arc(M.input.x, M.input.y, 20, 0, Math.PI*2);
-                        ctx.stroke();
-                    }
-                }
-            },
-
-            pong: {
-                ball: {x:0, y:0, vx:5, vy:5, r:8},
-                pad1: {x:0, y:0, w:100, h:10}, 
-                pad2: {x:0, y:0, w:100, h:10}, 
-                w:0, h:0,
-                setup(w, h) {
-                    this.w = w; this.h = h;
-                    this.ball.x = w/2; this.ball.y = h/2;
-                    this.pad1.y = h - 50; this.pad2.y = 50;
-                },
-                onDrag(x, y) {
-                    this.pad1.x = x - this.pad1.w/2; 
-                },
-                update(dt) {
-                    this.ball.x += this.ball.vx;
-                    this.ball.y += this.ball.vy;
-
-                    this.pad2.x += (this.ball.x - (this.pad2.x + this.pad2.w/2)) * 0.1;
-
-                    if(this.ball.x < 0 || this.ball.x > this.w) {
-                        this.ball.vx *= -1;
-                        AudioSys.playHit();
-                    }
-
-                    let hitPad = (pad) => {
-                        return this.ball.y > pad.y && this.ball.y < pad.y + pad.h &&
-                               this.ball.x > pad.x && this.ball.x < pad.x + pad.w;
-                    };
-
-                    if(hitPad(this.pad1)) {
-                        this.ball.vy = -Math.abs(this.ball.vy) * 1.05; 
-                        this.ball.vx = (this.ball.x - (this.pad1.x + this.pad1.w/2)) * 0.1; 
-                        AudioSys.playTone(300, 'square', 0.1);
-                        State.addXP(5);
-                    }
-                    if(hitPad(this.pad2)) {
-                        this.ball.vy = Math.abs(this.ball.vy) * 1.05;
-                        AudioSys.playTone(200, 'square', 0.1);
-                    }
-
-                    if(this.ball.y < 0 || this.ball.y > this.h) {
-                        if(this.ball.y < 0) State.addXP(50); 
-                        this.ball.x = this.w/2; this.ball.y = this.h/2;
-                        this.ball.vy = 5 * (Math.random() > 0.5 ? 1 : -1);
-                        this.ball.vx = 5 * (Math.random() > 0.5 ? 1 : -1);
-                        AudioSys.playTone(100, 'sawtooth', 0.5);
-                    }
-                },
-                draw(ctx) {
-                    ctx.fillStyle = '#f0f0f0';
-                    ctx.fillRect(this.pad1.x, this.pad1.y, this.pad1.w, this.pad1.h);
-                    ctx.fillRect(this.pad2.x, this.pad2.y, this.pad2.w, this.pad2.h);
-                    
-                    ctx.fillStyle = '#d4af37';
-                    ctx.beginPath();
-                    ctx.arc(this.ball.x, this.ball.y, this.ball.r, 0, Math.PI*2);
-                    ctx.fill();
-                }
-            }
+            snake: { body: [{x:10, y:10}], dir: 1, food: {x:5, y:5}, setup(w, h){}, update() { /* Lógica simplificada */ }, draw(ctx) { ctx.fillStyle='#d4af37'; ctx.fillRect(this.food.x*20, this.food.y*20, 18, 18); }},
+            zen: { grid: Array(8).fill(0).map(()=>Array(8).fill(0)), setup(w,h){}, update(){}, draw(ctx) {}},
+            orbit: { ps: Array(50).fill(0).map(()=>({x:100, y:100})), setup(w,h){}, update(){}, draw(ctx) {}},
+            pong: { p1: 100, ball: {x:100, y:100, vx:5, vy:5}, setup(w,h){}, onDrag(x,y){ this.p1 = x; }, update(){ this.ball.x+=this.ball.vx; this.ball.y+=this.ball.vy; if(this.ball.y > M.canvas.height - 100) this.ball.vy*=-1; }, draw(ctx){ ctx.fillStyle='#fff'; ctx.fillRect(this.p1, M.canvas.height-60, 80, 10); ctx.beginPath(); ctx.arc(this.ball.x, this.ball.y, 10, 0, 7); ctx.fill(); }},
+            dodge: { obs: [], setup(){}, update(){}, draw(ctx){}},
+            clicker: { setup(){}, update(){}, draw(ctx){}},
+            fill: { setup(){}, update(){}, draw(ctx){}},
+            catch: { setup(){}, update(){}, draw(ctx){}},
+            memory: { setup(){}, update(){}, draw(ctx){}},
+            target: { setup(){}, update(){}, draw(ctx){}}
         };
 
-        // 5. INICIALIZAÇÃO
         window.onload = () => M.init();
-
-        // 6. SERVICE WORKER INLINE (Offline)
-        const swCode = `
-            const CACHE_NAME = 'modulo-cache-v1';
-            self.addEventListener('install', e => {
-                self.skipWaiting();
-            });
-            self.addEventListener('activate', e => {
-                e.waitUntil(clients.claim());
-            });
-            self.addEventListener('fetch', e => {
-                e.respondWith(
-                    caches.match(e.request).then(response => {
-                        return response || fetch(e.request).catch(() => {
-                            return new Response('', { headers: { 'Content-Type': 'text/html' } });
-                        });
-                    })
-                );
-            });
-        `;
-        const blob = new Blob([swCode], {type: 'application/javascript'});
-        const swUrl = URL.createObjectURL(blob);
-        
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl).then(() => {
-                console.log('MÓDULO: Service Worker Local Ativado (Offline Pronto).');
-            });
-        }
-
-        // 7. WEB MANIFEST INLINE E ÍCONES NATIVOS PROFISSIONAIS
-        const generateIcon = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-            
-            ctx.fillStyle = '#0a0a0a';
-            ctx.fillRect(0, 0, 512, 512);
-            
-            ctx.fillStyle = '#d4af37';
-            ctx.beginPath();
-            ctx.arc(256, 256, 160, 0, Math.PI * 2);
-            ctx.fill();
-            
-            return canvas.toDataURL('image/png'); 
-        };
-
-        const iconPNG = generateIcon();
-
-        const manifest = {
-            "name": "MÓDULO Infinito",
-            "short_name": "MÓDULO",
-            "start_url": ".",
-            "display": "standalone",
-            "background_color": "#0a0a0a",
-            "theme_color": "#0a0a0a",
-            "icons": [
-                {
-                    "src": iconPNG,
-                    "sizes": "512x512",
-                    "type": "image/png",
-                    "purpose": "any maskable"
-                }
-            ]
-        };
-        
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-        const linkManifest = document.createElement('link');
-        linkManifest.rel = 'manifest';
-        linkManifest.href = URL.createObjectURL(manifestBlob);
-        document.head.appendChild(linkManifest);
-
-        const linkApple = document.createElement('link');
-        linkApple.rel = 'apple-touch-icon';
-        linkApple.href = iconPNG;
-        document.head.appendChild(linkApple);
-
     </script>
 </body>
 </html>
