@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MÓDULO: Infinito</title>
+    <meta name="theme-color" content="#121212">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap');
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { 
+            background: radial-gradient(circle at center, #1e1e1e 0%, #121212 100%); 
+            color: #e0e0e0; font-family: 'Inter', sans-serif; 
+            overflow: hidden; width: 100vw; height: 100vh; display: flex; flex-direction: column;
+        }
+        
+        /* UI de Luxo Industrial */
+        header {
+            padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2); background: rgba(18, 18, 18, 0.8);
+            backdrop-filter: blur(10px); z-index: 10;
+        }
+        h1 { font-size: 14px; letter-spacing: 4px; font-weight: 300; color: #d4af37; text-transform: uppercase; }
+        .xp-bar { font-size: 12px; color: #888; display: flex; align-items: center; gap: 10px; }
+        .xp-value { color: #d4af37; font-weight: 700; }
+        
+        .nav-tabs {
+            display: flex; justify-content: center; gap: 15px; padding: 10px; background: #1a1a1a; z-index: 10;
+        }
+        .tab {
+            background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #888;
+            padding: 8px 16px; border-radius: 4px; font-family: inherit; font-size: 12px;
+            cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .tab.active { border-color: #d4af37; color: #d4af37; box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); }
+        
+        canvas { flex-grow: 1; width: 100%; display: block; }
+        
+        /* Overlay de Inicialização (Necessário para desbloquear Áudio no Navegador) */
+        #bootScreen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #121212; z-index: 999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; cursor: pointer;
+        }
+        .btn-boot {
+            padding: 15px 40px; border: 1px solid #d4af37; color: #d4af37; background: transparent;
+            font-size: 14px; letter-spacing: 3px; cursor: pointer; border-radius: 2px;
+            text-transform: uppercase; transition: 0.3s;
+        }
+        .btn-boot:hover { background: rgba(212, 175, 55, 0.1); }
+    </style>
+    <!-- Web Manifest Embutido para PWA -->
+    <link rel="manifest" id="manifestLink">
+</head>
+<body>
+
+    <div id="bootScreen" onclick="initEngine()">
+        <button class="btn-boot">Iniciar MÓDULO</button>
+    </div>
+
+    <header>
+        <h1>MÓDULO</h1>
+        <div class="xp-bar">STARDUST <span class="xp-value" id="xpDisplay">0</span></div>
+    </header>
+    
+    <div class="nav-tabs">
+        <button class="tab active" onclick="switchGame('snake')">Snake Elegance</button>
+        <button class="tab" onclick="switchGame('zen')">Zen Matrix</button>
+        <button class="tab" onclick="switchGame('orbit')">Quantum Orbit</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+/* =========================================
+   1. INFRAESTRUTURA PWA AUTOMÁTICA
+   ========================================= */
+const manifestJSON = {
+    name: "MÓDULO: Infinito", short_name: "MÓDULO",
+    start_url: ".", display: "standalone", background_color: "#121212", theme_color: "#121212",
+    icons: [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23121212'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='%23d4af37' stroke-width='4'/%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml"}]
+};
+document.getElementById('manifestLink').setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestJSON)));
+
+const swCode = `
+self.addEventListener('install', e => self.skipWaiting());
+self.addEventListener('fetch', e => {
+    e.respondWith(fetch(e.request).catch(() => new Response('MÓDULO rodando Offline.', {headers: {'Content-Type': 'text/plain'}})));
+});`;
+const blob = new Blob([swCode], {type: 'application/javascript'});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(blob));
+
+/* =========================================
+   2. MOTOR DE ÁUDIO & ESTADO GLOBAL
+   ========================================= */
+let audioCtx;
+const State = {
+    xp: parseInt(localStorage.getItem('modulo_xp')) || 0,
+    addXP: (amount) => {
+        State.xp += amount;
+        document.getElementById('xpDisplay').innerText = State.xp;
+        localStorage.setItem('modulo_xp', State.xp);
+    }
+};
+
+const AudioSys = {
+    playTone: (freq, type = 'sine', duration = 0.1, vol = 0.1) => {
+        if(!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+};
+
+/* =========================================
+   3. SISTEMA DE PARTÍCULAS (DOPAMINA)
+   ========================================= */
+class ParticleSys {
+    constructor() { this.particles = []; }
+    spawn(x, y, count, color = '#d4af37') {
+        for(let i=0; i<count; i++) {
+            this.particles.push({
+                x, y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10,
+                life: 1, color, size: Math.random()*3+1
+            });
+        }
+    }
+    updateAndDraw(ctx) {
+        for(let i=this.particles.length-1; i>=0; i--) {
+            let p = this.particles[i];
+            p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.02;
+            ctx.fillStyle = `rgba(212, 175, 55, ${p.life})`;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+            if(p.life <= 0) this.particles.splice(i, 1);
+        }
+    }
+}
+const FX = new ParticleSys();
+
+/* =========================================
+   4. MATRIZ DE JOGOS
+   ========================================= */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let width, height;
+function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight - 100; }
+window.addEventListener('resize', resize);
+resize();
+
+const Inputs = { x: width/2, y: height/2, isDown: false, swipeDir: 'RIGHT' };
+let touchStartX = 0, touchStartY = 0;
+
+canvas.addEventListener('mousedown', (e) => { Inputs.isDown = true; Inputs.x = e.clientX; Inputs.y = e.clientY - 100; });
+canvas.addEventListener('mousemove', (e) => { if(Inputs.isDown) { Inputs.x = e.clientX; Inputs.y = e.clientY - 100; } });
+canvas.addEventListener('mouseup', () => Inputs.isDown = false);
+canvas.addEventListener('touchstart', (e) => { 
+    Inputs.isDown = true; Inputs.x = e.touches[0].clientX; Inputs.y = e.touches[0].clientY - 100;
+    touchStartX = Inputs.x; touchStartY = Inputs.y;
+});
+canvas.addEventListener('touchmove', (e) => { 
+    if(Inputs.isDown) { Inputs.x = e.touches[0].clientX; Inputs.y = e.touches[0].clientY - 100; } 
+});
+canvas.addEventListener('touchend', (e) => { 
+    Inputs.isDown = false;
+    let dx = Inputs.x - touchStartX; let dy = Inputs.y - touchStartY;
+    if(Math.abs(dx) > Math.abs(dy)) { Inputs.swipeDir = dx > 0 ? 'RIGHT' : 'LEFT'; }
+    else { Inputs.swipeDir = dy > 0 ? 'DOWN' : 'UP'; }
+});
+window.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowUp') Inputs.swipeDir = 'UP';
+    if(e.key === 'ArrowDown') Inputs.swipeDir = 'DOWN';
+    if(e.key === 'ArrowLeft') Inputs.swipeDir = 'LEFT';
+    if(e.key === 'ArrowRight') Inputs.swipeDir = 'RIGHT';
+});
+
+// -- JOGO 1: SNAKE ELEGANCE --
+const SnakeGame = {
+    gridSize: 20, snake: [], food: {}, dir: 'RIGHT', frameCount: 0, speed: 8,
+    init() {
+        this.snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
+        this.dir = 'RIGHT'; Inputs.swipeDir = 'RIGHT';
+        this.spawnFood();
+    },
+    spawnFood() {
+        this.food = { x: Math.floor(Math.random()*(width/this.gridSize)), y: Math.floor(Math.random()*(height/this.gridSize)) };
+    },
+    update() {
+        this.frameCount++;
+        if(this.frameCount % this.speed !== 0) return;
+        
+        let head = { ...this.snake[0] };
+        if(Inputs.swipeDir === 'UP' && this.dir !== 'DOWN') this.dir = 'UP';
+        if(Inputs.swipeDir === 'DOWN' && this.dir !== 'UP') this.dir = 'DOWN';
+        if(Inputs.swipeDir === 'LEFT' && this.dir !== 'RIGHT') this.dir = 'LEFT';
+        if(Inputs.swipeDir === 'RIGHT' && this.dir !== 'LEFT') this.dir = 'RIGHT';
+
+        if(this.dir === 'UP') head.y--; if(this.dir === 'DOWN') head.y++;
+        if(this.dir === 'LEFT') head.x--; if(this.dir === 'RIGHT') head.x++;
+
+        // Wrap around (sem paredes)
+        if(head.x < 0) head.x = Math.floor(width/this.gridSize);
+        if(head.x > Math.floor(width/this.gridSize)) head.x = 0;
+        if(head.y < 0) head.y = Math.floor(height/this.gridSize);
+        if(head.y > Math.floor(height/this.gridSize)) head.y = 0;
+
+        // Auto-colisão
+        for(let i=1; i<this.snake.length; i++) {
+            if(head.x === this.snake[i].x && head.y === this.snake[i].y) {
+                AudioSys.playTone(150, 'sawtooth', 0.5); this.init(); return; // Game Over
+            }
+        }
+
+        this.snake.unshift(head);
+        if(head.x === this.food.x && head.y === this.food.y) {
+            AudioSys.playTone(660, 'sine', 0.1); FX.spawn(head.x*this.gridSize, head.y*this.gridSize, 15);
+            State.addXP(10); this.spawnFood();
+        } else {
+            this.snake.pop();
+        }
+    },
+    draw(ctx) {
+        ctx.fillStyle = 'rgba(212, 175, 55, 0.8)';
+        this.snake.forEach((s, i) => {
+            ctx.globalAlpha = 1 - (i/this.snake.length)*0.8;
+            ctx.fillRect(s.x*this.gridSize, s.y*this.gridSize, this.gridSize-2, this.gridSize-2);
+        });
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(this.food.x*this.gridSize, this.food.y*this.gridSize, this.gridSize-2, this.gridSize-2);
+    }
+};
+
+// -- JOGO 2: ZEN MATRIX --
+const ZenMatrix = {
+    grid: [], cols: 8, rows: 8, cellSize: 40, playhead: 0, frameCount: 0,
+    pentatonic: [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25], // C Major Pentatonic
+    init() {
+        this.cellSize = Math.min(width, height) / 10;
+        for(let x=0; x<this.cols; x++) {
+            this.grid[x] = [];
+            for(let y=0; y<this.rows; y++) this.grid[x][y] = false;
+        }
+    },
+    update() {
+        if(Inputs.isDown) {
+            let cx = Math.floor((Inputs.x - (width/2 - (this.cols*this.cellSize)/2)) / this.cellSize);
+            let cy = Math.floor((Inputs.y - (height/2 - (this.rows*this.cellSize)/2)) / this.cellSize);
+            if(cx >= 0 && cx < this.cols && cy >= 0 && cy < this.rows) {
+                this.grid[cx][cy] = true;
+                FX.spawn(Inputs.x, Inputs.y, 2);
+            }
+        }
+        this.frameCount++;
+        if(this.frameCount % 15 === 0) {
+            this.playhead = (this.playhead + 1) % this.cols;
+            for(let y=0; y<this.rows; y++) {
+                if(this.grid[this.playhead][y]) {
+                    AudioSys.playTone(this.pentatonic[7-y], 'sine', 0.3);
+                    FX.spawn(width/2 - (this.cols*this.cellSize)/2 + this.playhead*this.cellSize + this.cellSize/2, 
+                             height/2 - (this.rows*this.cellSize)/2 + y*this.cellSize + this.cellSize/2, 10);
+                    State.addXP(1);
+                }
+            }
+        }
+    },
+    draw(ctx) {
+        let offsetX = width/2 - (this.cols*this.cellSize)/2;
+        let offsetY = height/2 - (this.rows*this.cellSize)/2;
+        for(let x=0; x<this.cols; x++) {
+            for(let y=0; y<this.rows; y++) {
+                ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+                ctx.strokeRect(offsetX + x*this.cellSize, offsetY + y*this.cellSize, this.cellSize, this.cellSize);
+                if(this.grid[x][y]) {
+                    ctx.fillStyle = x === this.playhead ? '#fff' : '#d4af37';
+                    ctx.fillRect(offsetX + x*this.cellSize+2, offsetY + y*this.cellSize+2, this.cellSize-4, this.cellSize-4);
+                }
+            }
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillRect(offsetX + this.playhead*this.cellSize, offsetY, this.cellSize, this.rows*this.cellSize);
+    }
+};
+
+// -- JOGO 3: QUANTUM ORBIT --
+const QuantumOrbit = {
+    particles: [],
+    init() {
+        this.particles = [];
+        for(let i=0; i<100; i++) {
+            this.particles.push({
+                x: Math.random()*width, y: Math.random()*height,
+                vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2
+            });
+        }
+    },
+    update() {
+        if(Inputs.isDown) {
+            State.addXP(1);
+            if(Math.random() > 0.9) AudioSys.playTone(Math.random()*400 + 200, 'sine', 0.05, 0.05);
+        }
+        this.particles.forEach(p => {
+            if(Inputs.isDown) {
+                let dx = Inputs.x - p.x; let dy = Inputs.y - p.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if(dist > 5) { p.vx += (dx/dist)*0.5; p.vy += (dy/dist)*0.5; }
+            }
+            p.vx *= 0.98; p.vy *= 0.98; // Friction
+            p.x += p.vx; p.y += p.vy;
+            // Bounce borders
+            if(p.x < 0 || p.x > width) p.vx *= -1;
+            if(p.y < 0 || p.y > height) p.vy *= -1;
+        });
+    },
+    draw(ctx) {
+        ctx.fillStyle = '#d4af37';
+        this.particles.forEach(p => {
+            ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+        });
+        if(Inputs.isDown) {
+            ctx.strokeStyle = 'rgba(212, 175, 55, 0.3)'; ctx.beginPath();
+            ctx.arc(Inputs.x, Inputs.y, 30 + Math.random()*10, 0, Math.PI*2); ctx.stroke();
+        }
+    }
+};
+
+/* =========================================
+   5. LOOP PRINCIPAL & CONTROLE
+   ========================================= */
+let activeEngine = SnakeGame;
+
+window.switchGame = function(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    if(name === 'snake') activeEngine = SnakeGame;
+    if(name === 'zen') activeEngine = ZenMatrix;
+    if(name === 'orbit') activeEngine = QuantumOrbit;
+    activeEngine.init();
+};
+
+function loop() {
+    ctx.fillStyle = 'rgba(18, 18, 18, 0.3)'; // Rastro esfumaçado
+    ctx.fillRect(0, 0, width, height);
+    
+    activeEngine.update();
+    activeEngine.draw(ctx);
+    FX.updateAndDraw(ctx);
+    
+    requestAnimationFrame(loop);
+}
+
+window.initEngine = function() {
+    document.getElementById('bootScreen').style.display = 'none';
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    document.getElementById('xpDisplay').innerText = State.xp;
+    SnakeGame.init(); ZenMatrix.init(); QuantumOrbit.init();
+    loop();
+    AudioSys.playTone(440, 'sine', 0.5); // Som de Inicialização
+};
+</script>
+</body>
+</html>
